@@ -20,6 +20,11 @@ from htmltools import Tag
 from shiny import App, Inputs, Outputs, Session, reactive, render, ui
 from shiny.ui._card import CardItem
 
+#####My Changes########
+import ollama
+######################
+
+
 # from signature import validate_email_server, validate_email_ui
 
 
@@ -480,7 +485,7 @@ does not ask you to modify the code, then ignore the code.
         nonlocal last_message_sent
 
         with reactive.isolate():
-            messages = chat.messages(
+            messages = w.messages(
                 format="anthropic",
                 token_limits=None,
                 transform_user="all",
