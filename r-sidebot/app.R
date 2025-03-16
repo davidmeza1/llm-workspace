@@ -34,7 +34,8 @@ openai_model <- "gpt-4o"
 ################################ https://ollama.com/blog/tool-support
 #ollama_model <- "llama3.2:3b-instruct-q8_0" # partially works, need to look at tools
 #ollama_model <- "mistral:instruct" # provides answers but does not update dashboard, look at tools
-ollama_model <- "llama3-groq-tool-use"
+#ollama_model <- "llama3-groq-tool-use"
+ollama_model <- "gemma3:4b"
 #ollama_model <- "mistral:7b-instruct-q4_0" # does not support tools
 
 #ollama_model <- "mistral-nemo" # seems to work but not completing the tasks
@@ -312,13 +313,13 @@ server <- function(input, output, session) {
   #chat <- chat_openai(model = openai_model, system_prompt = system_prompt_str)
 
   ##########################################
-  #chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str)
+  chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str)
   ##########################################
 
 #############################################
-  chat <- chat_groq(system_prompt = "system_prompt_str",
-                       api_key = "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",
-                       model = "llama3-groq-8b-8192-tool-use-preview")
+ # chat <- chat_groq(system_prompt = "system_prompt_str",
+ #                      api_key = "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",
+  #                     model = "llama3-groq-8b-8192-tool-use-preview")
 ##############################################
   chat$register_tool(ToolDef(
     update_dashboard,
