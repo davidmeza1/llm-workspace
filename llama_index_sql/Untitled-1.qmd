@@ -1,0 +1,28 @@
+---
+title: "Untitled"
+format: html
+---
+
+The code provided is a Streamlit app that allows the user to interact with an SQL database using natural language queries. Here's a breakdown of the different components of the code:
+
+
+
+Importing libraries: The code imports several libraries, including streamlit, pandas, plotly.express, and sqlalchemy. These libraries are used for building the user interface, data manipulation, visualization, and connecting to the database.
+
+Setting page config: The code sets the page title using st.set_page_config function. This function is used to set various configuration options for the Streamlit app, such as the page title, layout, and other settings.
+
+Authentication: The code checks if the user has already provided their name by checking if the "name" key exists in the st.session_state dictionary. If it does not exist, the user is prompted to enter their name using a text input widget. If the user has already provided their name, they are greeted with a welcome message.
+
+Database connection information: The code defines the database connection information, including the server, port, database, driver, and schema. These values are used to create an SQLAlchemy engine using the create_engine function.
+
+Engine initialization: The code initializes the SQLAlchemy engine using the create_engine function. This engine is used to connect to the database and execute queries.
+
+Database upload: The code allows the user to upload a SQLite database file using the st.file_uploader widget. If a file is uploaded, it is parsed to extract the table names and create a list of tables. These table names are then used to initialize an ObjectIndex for storing the table schema information.
+
+Query execution: The code allows the user to enter a natural language query using a text input widget. The query is executed using the query method of the SQLAlchemy engine, which returns the results of the query as a pandas DataFrame.
+
+Results display: The code displays the results of the query using a Streamlit dataframe widget and a bar chart if the number of columns in the DataFrame is greater than 1. The bar chart is created using the px.bar function from the plotly library.
+
+SQL query display: The code displays the executed SQL query using a Streamlit code block widget. This allows the user to see the SQL query that was executed and visualize the results.
+
+Previous queries: The code allows the user to view previous queries that have been executed in the Streamlit app by expanding an expander widget that displays the previous queries. Each query is displayed as a code block using the st.code function.

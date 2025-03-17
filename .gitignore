@@ -198,3 +198,8 @@ vignettes/*.pdf
 
 # MAC
 *.DS_Store
+data/
+*.csv
+*.txt
+*.zip
+
