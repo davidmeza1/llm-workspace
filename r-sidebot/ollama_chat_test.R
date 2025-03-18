@@ -9,14 +9,14 @@ library(elmer)
 library(tidyverse)
 
 # Source prompt-helper
-source("~/GitHub_OCHCO/r-sidebot/R/prompt-helper.R", echo=TRUE)
+source("R/prompt-helper.R", echo=TRUE)
 
 # Import csv to duckdb
 library(readr)
-wag <- read_csv("~/Library/CloudStorage/OneDrive-NASA/TSE_data/WAG/WAG_202121_cpp.csv")
-wag_df <-  wag %>%
-  group_by(`Fiscal year`) %>%
-  distinct(ID, .keep_all = TRUE) %>%
+#wag <- read_csv("~/Library/CloudStorage/OneDrive-NASA/TSE_data/WAG/WAG_202121_cpp.csv")
+#wag_df <-  wag %>%
+#  group_by(`Fiscal year`) %>%
+#  distinct(ID, .keep_all = TRUE) %>%
 
 wag$education_level_1 <- replace_na(wag$education_level_1, -999)
 write_csv(wag, "wag.csv")

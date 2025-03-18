@@ -19,7 +19,7 @@ library(plotly)
 library(ggplot2)
 library(ggridges)
 library(dplyr)
-library(elmer)
+library(ellmer)
 library(shinychat)
 
 # Open the duckdb database
@@ -35,7 +35,9 @@ openai_model <- "gpt-4o"
 #ollama_model <- "llama3.2:3b-instruct-q8_0" # partially works, need to look at tools
 #ollama_model <- "mistral:instruct" # provides answers but does not update dashboard, look at tools
 #ollama_model <- "llama3-groq-tool-use"
-ollama_model <- "gemma3:4b"
+ollama_model <- "llama3.3:70b-instruct-q4_K_M"
+#ollama_model <- "gemma3:4b" # local Model
+#ollama_model <- "gemma3:27b" # used when connected to Ollama server
 #ollama_model <- "mistral:7b-instruct-q4_0" # does not support tools
 
 #ollama_model <- "mistral-nemo" # seems to work but not completing the tasks
@@ -313,7 +315,8 @@ server <- function(input, output, session) {
   #chat <- chat_openai(model = openai_model, system_prompt = system_prompt_str)
 
   ##########################################
-  chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str)
+  #chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str)
+  chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str, base_url = "http://131.110.210.167:443")
   ##########################################
 
 #############################################
@@ -321,35 +324,23 @@ server <- function(input, output, session) {
  #                      api_key = "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",
   #                     model = "llama3-groq-8b-8192-tool-use-preview")
 ##############################################
-  chat$register_tool(ToolDef(
+  chat$register_tool(tool(
     update_dashboard,
-    name = "update_dashboard",
-    description = "Modifies the data presented in the data dashboard, based on the given SQL query, and also updates the title.",
-    arguments = list(
-      query = ToolArg(
-        type = "string",
-        description = "A DuckDB SQL query; must be a SELECT statement.",
-        required = TRUE
-      ),
-      title = ToolArg(
-        type = "string",
-        description = "A title to display at the top of the data dashboard, summarizing the intent of the SQL query.",
-        required = TRUE
-      )
+    #name = "update_dashboard",
+    #description =
+    "Modifies the data presented in the data dashboard, based on the given SQL query, and also updates the title.",
+    query = type_string("A DuckDB SQL query; must be a SELECT statement.", required = TRUE),
+    title = type_string("A title to display at the top of the data dashboard, summarizing the intent of the SQL query.", required = TRUE)
     )
-  ))
-  chat$register_tool(ToolDef(
+  )
+  chat$register_tool(tool(
     query,
-    name = "query",
-    description = "Perform a SQL query on the data, and return the results as JSON.",
-    arguments = list(
-      query = ToolArg(
-        type = "string",
-        description = "A DuckDB SQL query; must be a SELECT statement.",
-        required = TRUE
+    #name = "query",
+    #description =
+    "Perform a SQL query on the data, and return the results as JSON.",
+    query = type_string("A DuckDB SQL query; must be a SELECT statement.", required = TRUE)
       )
     )
-  ))
 
   # Prepopulate the chat UI with a welcome message that appears to be from the
   # chat model (but is actually hard-coded). This is just for the user, not for
