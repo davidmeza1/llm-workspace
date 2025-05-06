@@ -3,7 +3,7 @@ library(bslib)
 library(ggplot2)
 library(DT)
 library(shinychat)
-library(elmer)
+library(ellmer)
 
 # Sample data
 set.seed(123)
@@ -83,7 +83,7 @@ server <- function(input, output, session) {
   #})
   
   # Chat functionality
-  chat <- elmer::chat_ollama(model = "mistral:instruct", system_prompt = "You're a helpful assistant for data analysis.")
+  chat <- ellmer::chat_ollama(model = "mistral:instruct", system_prompt = "You're a helpful assistant for data analysis.")
   
   observeEvent(input$chat_user_input, {
     #stream <- chat$chat(input$chat_user_input)

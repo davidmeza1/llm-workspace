@@ -21,34 +21,24 @@ library(ggridges)
 library(dplyr)
 library(ellmer)
 library(shinychat)
-library(gt)
-library(gtsummary)
 
 # Open the duckdb database
-#conn <- dbConnect(duckdb(), dbdir = here("tips.duckdb"), read_only = TRUE)
-conn <- dbConnect(duckdb(), dbdir = here("drp.duckdb"), read_only = TRUE)
+conn <- dbConnect(duckdb(), dbdir = here("tips.duckdb"), read_only = TRUE)
+#conn <- dbConnect(duckdb(), dbdir = here("wag.duckdb"), read_only = TRUE)
 # Close the database when the app stops
 onStop(\() dbDisconnect(conn))
 
 # gpt-4o does much better than gpt-4o-mini, especially at interpreting plots
-#openai_model <- "gpt-4o"
+openai_model <- "gpt-4o"
 
 ################################ https://ollama.com/blog/tool-support
 #ollama_model <- "llama3.2:3b-instruct-q8_0" # partially works, need to look at tools
-#ollama_model <- "mistral:instruct" # provides answers but does not update dashboard, look at tools
-#ollama_model <- "llama3-groq-tool-use"
-ollama_model <- "llama3.3:70b-instruct-q4_K_M"
+ollama_model <- "llama3.2:latest"
+#ollama_model <- "gemma2:9b-instruct-q5_K_M"
+#ollama_model <- "llama3.3:70b-instruct-q4_K_M"
 #ollama_model <- "gemma3:4b" # local Model
 #ollama_model <- "gemma3:27b" # used when connected to Ollama server
 #ollama_model <- "mistral:7b-instruct-q4_0" # does not support tools
-
-#ollama_model <- "mistral-nemo" # seems to work but not completing the tasks
-
-#ollama_model <- "codegemma:instruct" #codegemma:instruct does not support tools
-#ollama_model <- "codellama:7b-instruct" #codellama:7b-instruct does not support tools
-#ollama_model <- "dolphin-mistral" # dolphin-mistral does not support tools
-#ollama_model <- "deepseek-coder-v2" #deepseek-coder-v2 does not support tools
-
 ################################
 
 
@@ -56,8 +46,8 @@ ollama_model <- "llama3.3:70b-instruct-q4_K_M"
 # large database, you wouldn't want to retrieve all the data like this, but
 # instead either hand-write the schema or write your own routine that is more
 # efficient than system_prompt().
-#system_prompt_str <- system_prompt(dbGetQuery(conn, "SELECT * FROM tips"), "tips")
-system_prompt_str <- system_prompt(dbGetQuery(conn, "SELECT * FROM drp"), "drp")
+system_prompt_str <- system_prompt(dbGetQuery(conn, "SELECT * FROM tips"), "tips")
+#system_prompt_str <- system_prompt(dbGetQuery(conn, "SELECT * FROM wag_duckdb"), "wag_duckdb")
 # This is the greeting that should initially appear in the sidebar when the app
 # loads.
 greeting <- paste(readLines(here("greeting.md")), collapse = "\n")
@@ -69,7 +59,7 @@ ui <- page_sidebar(
   title = "Restaurant tipping",
   includeCSS(here("styles.css")),
   sidebar = sidebar(
-    width = 500,
+    width = 400,
     style = "height: 100%;",
     chat_ui("chat", height = "100%", fill = TRUE)
   ),
@@ -85,18 +75,18 @@ ui <- page_sidebar(
     fill = FALSE,
     value_box(
       showcase = fa_i("user"),
-      "Total DRP",
-      textOutput("total_drpers", inline = TRUE)
+      "Total tippers",
+      textOutput("total_tippers", inline = TRUE)
     ),
     value_box(
       showcase = fa_i("wallet"),
-      "Average Years Experience",
-      textOutput("average_exp_years", inline = TRUE)
+      "Average tips",
+      textOutput("average_tip", inline = TRUE)
     ),
     value_box(
       showcase = fa_i("dollar-sign"),
-      "Retirement Eligible",
-      textOutput("average_retirement", inline = TRUE)
+      "Average bill",
+      textOutput("average_bill", inline = TRUE)
     ),
   ),
 
@@ -107,7 +97,7 @@ ui <- page_sidebar(
     # 🔍 Data table
     card(
       style = "height: 500px;",
-      card_header("DRP data"),
+      card_header("Tips data"),
       reactableOutput("table", height = "100%")
     ),
 
@@ -115,7 +105,7 @@ ui <- page_sidebar(
     card(
       card_header(
         class = "d-flex justify-content-between align-items-center",
-        "Grade by Employee Age",
+        "Total bill vs tip",
         span(
           actionLink(
             "interpret_scatter",
@@ -129,7 +119,7 @@ ui <- page_sidebar(
             radioButtons(
               "scatter_color",
               NULL,
-              c("none", "center", "mseo_code", "oic_org", "retirement_status"),
+              c("none", "sex", "smoker", "day", "time"),
               inline = TRUE
             )
           )
@@ -142,7 +132,7 @@ ui <- page_sidebar(
     card(
       card_header(
         class = "d-flex justify-content-between align-items-center",
-        "DRP Count by Center and MSEO",
+        "Tip percentages",
         span(
           actionLink(
             "interpret_ridge",
@@ -163,8 +153,7 @@ ui <- page_sidebar(
           )
         )
       ),
-      #plotOutput("tip_perc")
-      gt_output("drp_count")
+      plotOutput("tip_perc")
     ),
   )
 )
@@ -182,11 +171,10 @@ server <- function(input, output, session) {
 
   # The reactive data frame. Either returns the entire dataset, or filtered by
   # whatever Sidebot decided.
-  drp_data <- reactive({
+  tips_data <- reactive({
     sql <- current_query()
     if (is.null(sql) || sql == "") {
-      #sql <- "SELECT * FROM tips;"
-      sql <- "SELECT * FROM drp;"
+      sql <- "SELECT * FROM tips;"
     }
     dbGetQuery(conn, sql)
   })
@@ -207,23 +195,18 @@ server <- function(input, output, session) {
 
   # 🎯 Value box outputs -----------------------------------------------------
 
-  output$total_drpers <- renderText({
-    nrow(drp_data())
+  output$total_tippers <- renderText({
+    nrow(tips_data())
   })
 
-  output$average_exp_years <- renderText({
-    z <- mean(drp_data()$years_of_service_federal, na.rm = TRUE)
-    #paste0(formatC(x, format = "f", digits = 1, big.mark = ","), "%")
+  output$average_tip <- renderText({
+    x <- mean(tips_data()$tip / tips_data()$total_bill) * 100
+    paste0(formatC(x, format = "f", digits = 1, big.mark = ","), "%")
   })
 
-  output$average_retirement <- renderText({
-    #x <- mean(drp_data()$total_bill)
-    #paste0("$", formatC(x, format = "f", digits = 2, big.mark = ","))
-    y <- drp_data() |> count(retirement_status, sort = TRUE)
-    numerator <- y |> filter(retirement_status != "Not Eligible")  |> count(sum(n)) |> select(`sum(n)`)
-    denominator <- y |> count(sum(n)) |> select(`sum(n)`)
-    x <- (numerator / denominator) * 100
-    paste0(formatC(x$`sum(n)`, format = "f", digits = 1, big.mark = ","), "%")
+  output$average_bill <- renderText({
+    x <- mean(tips_data()$total_bill)
+    paste0("$", formatC(x, format = "f", digits = 2, big.mark = ","))
   })
 
 
@@ -231,8 +214,8 @@ server <- function(input, output, session) {
   # 🔍 Data table ------------------------------------------------------------
 
   output$table <- renderReactable({
-    reactable(drp_data(),
-              pagination = FALSE, bordered = TRUE
+    reactable(tips_data(),
+      pagination = FALSE, bordered = TRUE
     )
   })
 
@@ -241,23 +224,23 @@ server <- function(input, output, session) {
   # 📊 Scatter plot ----------------------------------------------------------
 
   scatterplot <- reactive({
-    req(nrow(drp_data()) > 0)
+    req(nrow(tips_data()) > 0)
 
     color <- input$scatter_color
 
-    data <- drp_data()
+    data <- tips_data()
 
-    p <- plot_ly(data, x = ~grade, y = ~employee_age_in_yrs, type = "scatter", mode = "markers")
+    p <- plot_ly(data, x = ~total_bill, y = ~tip, type = "scatter", mode = "markers")
 
     if (color != "none") {
       p <- plot_ly(data,
-                   x = ~grade, y = ~employee_age_in_yrs, color = as.formula(paste0("~", color)),
-                   type = "scatter", mode = "markers"
+        x = ~total_bill, y = ~tip, color = as.formula(paste0("~", color)),
+        type = "scatter", mode = "markers"
       )
     }
 
     p <- p |> add_lines(
-      x = ~grade, y = fitted(loess(employee_age_in_yrs ~ grade, data = data)),
+      x = ~total_bill, y = fitted(loess(tip ~ total_bill, data = data)),
       line = list(color = "rgba(255, 0, 0, 0.5)"),
       name = "LOESS", inherit = FALSE
     )
@@ -272,53 +255,34 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$interpret_scatter, {
-    explain_plot(chat, scatterplot(), model = ollama_model, .ctx = ctx)
+    explain_plot(chat, scatterplot(), model = openai_model, .ctx = ctx)
   })
 
 
 
   # 📊 Ridge plot ------------------------------------------------------------
 
-  #tip_perc <- reactive({
-  #  req(nrow(drp_data()) > 0)
+  tip_perc <- reactive({
+    req(nrow(tips_data()) > 0)
 
-  #  df <- drp_data() |> mutate(percent = tip / total_bill)
+    df <- tips_data() |> mutate(percent = tip / total_bill)
 
-  #  ggplot(df, aes_string(x = "percent", y = input$tip_perc_y, fill = input$tip_perc_y)) +
-  #    geom_density_ridges(scale = 3, rel_min_height = 0.01, alpha = 0.6) +
-  #    scale_fill_viridis_d() +
-  #    theme_ridges() +
-  #    labs(x = "Percent", y = NULL, title = "Tip Percentages by Day") +
-  #    theme(legend.position = "none")
-  #})
-
-  #output$tip_perc <- renderPlot({
-  #  tip_perc()
-  #})
-
-  #observeEvent(input$interpret_ridge, {
-  #  explain_plot(chat, tip_perc(), model = openai_model, .ctx = ctx)
-  #})
-
-  drp_count <- reactive({
-    req(nrow(drp_data()) > 0)
-
-    drp_data() |>
-      tbl_cross(
-        row = center,
-        col = mseo_code,
-        percent = "cell"
-      ) |>
-      as_gt()
+    ggplot(df, aes_string(x = "percent", y = input$tip_perc_y, fill = input$tip_perc_y)) +
+      geom_density_ridges(scale = 3, rel_min_height = 0.01, alpha = 0.6) +
+      scale_fill_viridis_d() +
+      theme_ridges() +
+      labs(x = "Percent", y = NULL, title = "Tip Percentages by Day") +
+      theme(legend.position = "none")
   })
 
-  output$drp_count <- render_gt({
-    drp_count()
+  output$tip_perc <- renderPlot({
+    tip_perc()
   })
 
   observeEvent(input$interpret_ridge, {
-    explain_plot(chat, drp_count(), model = ollama_model, .ctx = ctx)
+    explain_plot(chat, tip_perc(), model = openai_model, .ctx = ctx)
   })
+
 
 
   # ✨ Sidebot ✨ -------------------------------------------------------------
@@ -343,15 +307,15 @@ server <- function(input, output, session) {
   #chat <- chat_openai(model = openai_model, system_prompt = system_prompt_str)
 
   ##########################################
-  #chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str)
-  chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str, base_url = "http://131.110.210.167:443")
+  chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str)
+  #chat <- chat_ollama(model= ollama_model, system_prompt = system_prompt_str, base_url = "http://131.110.210.167:443")
   ##########################################
 
-  #############################################
-  # chat <- chat_groq(system_prompt = "system_prompt_str",
-  #                      api_key = "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",
+#############################################
+ # chat <- chat_groq(system_prompt = "system_prompt_str",
+ #                      api_key = "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",
   #                     model = "llama3-groq-8b-8192-tool-use-preview")
-  ##############################################
+##############################################
   chat$register_tool(tool(
     update_dashboard,
     #name = "update_dashboard",
@@ -359,18 +323,7 @@ server <- function(input, output, session) {
     "Modifies the data presented in the data dashboard, based on the given SQL query, and also updates the title.",
     query = type_string("A DuckDB SQL query; must be a SELECT statement.", required = TRUE),
     title = type_string("A title to display at the top of the data dashboard, summarizing the intent of the SQL query.", required = TRUE)
-    #arguments = list(
-    #  query = ToolArg(
-    #    type = "string",
-    #    description = "A DuckDB SQL query; must be a SELECT statement.",
-    #    required = TRUE
-    #  ),
-    #  title = ToolArg(
-    #    type = "string",
-    #    description = "A title to display at the top of the data dashboard, summarizing the intent of the SQL query.",
-    #   required = TRUE
-    #  )
-  )
+    )
   )
   chat$register_tool(tool(
     query,
@@ -378,13 +331,8 @@ server <- function(input, output, session) {
     #description =
     "Perform a SQL query on the data, and return the results as JSON.",
     query = type_string("A DuckDB SQL query; must be a SELECT statement.", required = TRUE)
-    #arguments = list(
-    #  query = ToolArg(
-    #    type = "string",
-    #    description = "A DuckDB SQL query; must be a SELECT statement.",
-    #    required = TRUE
-  )
-  )
+      )
+    )
 
   # Prepopulate the chat UI with a welcome message that appears to be from the
   # chat model (but is actually hard-coded). This is just for the user, not for
